@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Notes App - Login/Register</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-8 rounded-xl shadow-md w-96">
+    <h2 class="text-2xl font-bold text-center mb-6" id="form-title">Login</h2>
+
+    <input type="email" id="email" placeholder="Email" class="w-full p-3 mb-3 border rounded-lg" />
+    <input type="password" id="password" placeholder="Password" class="w-full p-3 mb-4 border rounded-lg" />
+    <button id="submitBtn" class="bg-blue-500 text-white w-full py-2 rounded-lg hover:bg-blue-600">Login</button>
+
+    <p class="text-center text-sm mt-4">
+      <span id="toggleText">Don't have an account?</span>
+      <button class="text-blue-500 underline" id="toggleBtn">Register</button>
+    </p>
+
+    <p class="text-center text-red-500 text-sm mt-3" id="errorMsg"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCuXDuoGk6j20i_x9xpSjPzSEQ4R8CvyKI",
+      authDomain: "note-381a7.firebaseapp.com",
+      projectId: "note-381a7",
+      storageBucket: "note-381a7.appspot.com",
+      messagingSenderId: "554901180941",
+      appId: "1:554901180941:web:dd6ff7e71d883c0527bb44"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    const email = document.getElementById("email");
+    const password = document.getElementById("password");
+    const submitBtn = document.getElementById("submitBtn");
+    const toggleBtn = document.getElementById("toggleBtn");
+    const formTitle = document.getElementById("form-title");
+    const toggleText = document.getElementById("toggleText");
+    const errorMsg = document.getElementById("errorMsg");
+
+    let isLogin = true;
+
+    toggleBtn.addEventListener("click", () => {
+      isLogin = !isLogin;
+      formTitle.textContent = isLogin ? "Login" : "Register";
+      submitBtn.textContent = isLogin ? "Login" : "Register";
+      toggleText.textContent = isLogin ? "Don't have an account?" : "Already have an account?";
+      toggleBtn.textContent = isLogin ? "Register" : "Login";
+      errorMsg.textContent = "";
+    });
+
+    submitBtn.addEventListener("click", async () => {
+      if (!email.value || !password.value) {
+        errorMsg.textContent = "Please fill all fields.";
+        return;
+      }
+
+      try {
+        if (isLogin) {
+          await signInWithEmailAndPassword(auth, email.value, password.value);
+        } else {
+          await createUserWithEmailAndPassword(auth, email.value, password.value);
+        }
+        window.location.href = "dashboard.html";
+      } catch (err) {
+        errorMsg.textContent = err.message;
+      }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        window.location.href = "dashboard.html";
+      }
+    });
+  </script>
+</body>
+</html>

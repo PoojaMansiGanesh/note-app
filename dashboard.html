@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Notes</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap">
+  <style>
+    * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    body { margin: 0; padding: 0; background: #f4f6f8; }
+    header {
+      background: #4f46e5;
+      color: white;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { margin: 0; font-size: 1.5rem; }
+    button.logout {
+      background: white;
+      color: #4f46e5;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .container {
+      max-width: 800px;
+      margin: 2rem auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    .input-area {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .input-area input, .input-area textarea {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 1rem;
+    }
+    .input-area button {
+      padding: 0.75rem 1rem;
+      background: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-weight: bold;
+      cursor: pointer;
+      opacity: 0.5;
+      transition: opacity 0.2s ease;
+    }
+    .input-area button.active {
+      opacity: 1;
+      cursor: pointer;
+    }
+    .notes {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    .note {
+      background: #fefefe;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      position: relative;
+    }
+    .note textarea {
+      width: 100%;
+      border: none;
+      resize: none;
+      font-size: 1rem;
+      background: transparent;
+      color: #333;
+    }
+    .note h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1.1rem;
+      color: #333;
+    }
+    .note button {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: transparent;
+      border: none;
+      color: red;
+      font-weight: bold;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+    .note .edit-btn {
+      right: 40px;
+      color: #4f46e5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>My Notes</h1>
+    <button class="logout">Logout</button>
+  </header>
+
+  <div class="container">
+    <div class="input-area">
+      <input type="text" id="note-title" placeholder="Title" />
+      <textarea id="note-content" placeholder="Your note..."></textarea>
+      <button id="addBtn" disabled>Add</button>
+    </div>
+    <div class="notes" id="notes-list"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+    import {
+      getAuth,
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      deleteDoc,
+      doc,
+      onSnapshot,
+      updateDoc
+    } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCuXDuoGk6j20i_x9xpSjPzSEQ4R8CvyKI",
+      authDomain: "note-381a7.firebaseapp.com",
+      projectId: "note-381a7",
+      storageBucket: "note-381a7.appspot.com",
+      messagingSenderId: "554901180941",
+      appId: "1:554901180941:web:dd6ff7e71d883c0527bb44"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const titleInput = document.getElementById("note-title");
+    const contentInput = document.getElementById("note-content");
+    const addBtn = document.getElementById("addBtn");
+    const notesList = document.getElementById("notes-list");
+    const logoutBtn = document.querySelector(".logout");
+
+    let userId = null;
+    let editingNoteId = null;
+
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        userId = user.uid;
+        loadNotes();
+      } else {
+        window.location.href = "index.html";
+      }
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      signOut(auth);
+    });
+
+    [titleInput, contentInput].forEach(input => {
+      input.addEventListener("input", () => {
+        const filled = titleInput.value.trim() && contentInput.value.trim();
+        addBtn.disabled = !filled;
+        addBtn.classList.toggle("active", filled);
+      });
+    });
+
+    addBtn.addEventListener("click", async () => {
+      const title = titleInput.value.trim();
+      const content = contentInput.value.trim();
+      if (!title || !content) return;
+
+      if (editingNoteId) {
+        const noteRef = doc(db, "users", userId, "notes", editingNoteId);
+        await updateDoc(noteRef, { title, content });
+        editingNoteId = null;
+        addBtn.textContent = "Add";
+      } else {
+        await addDoc(collection(db, "users", userId, "notes"), {
+          title,
+          content,
+          created: new Date()
+        });
+      }
+
+      titleInput.value = "";
+      contentInput.value = "";
+      addBtn.disabled = true;
+      addBtn.classList.remove("active");
+    });
+
+    function loadNotes() {
+      const notesRef = collection(db, "users", userId, "notes");
+      onSnapshot(notesRef, snapshot => {
+        notesList.innerHTML = "";
+        snapshot.forEach(docSnap => {
+          const note = docSnap.data();
+          const div = document.createElement("div");
+          div.className = "note";
+          div.innerHTML = `
+            <h3>${note.title}</h3>
+            <textarea readonly>${note.content}</textarea>
+            <button onclick="deleteNote('${docSnap.id}')">×</button>
+            <button class="edit-btn" onclick="editNote('${docSnap.id}', \`${note.title}\`, \`${note.content}\`)">✏️</button>
+          `;
+          notesList.appendChild(div);
+        });
+      });
+    }
+
+    window.deleteNote = async function(id) {
+      const noteRef = doc(db, "users", userId, "notes", id);
+      await deleteDoc(noteRef);
+    };
+
+    window.editNote = function(id, title, content) {
+      titleInput.value = title;
+      contentInput.value = content;
+      addBtn.textContent = "Update";
+      addBtn.disabled = false;
+      addBtn.classList.add("active");
+      editingNoteId = id;
+    };
+  </script>
+</body>
+</html>
